@@ -5,58 +5,72 @@ class Amplifier
     reset
   end
 
-  attr_reader :mem, :pointer
+  attr_accessor :mem, :pointer, :inputs, :op, :modifiers, :params_count, :output
 
   def reset
-    @mem = MEM.dup
-    @pointer = 0
+    self.mem = MEM.dup
+    self.pointer = 0
   end
-
-  PARAMS = { 1 => 3, 2 => 3, 3 => 1, 4 => 1, 5 => 2, 6 => 2, 7 => 3, 8 => 3, 99 => 0 }.freeze
 
   def run(inputs)
-    ret_code = nil
-    until ret_code
-      command = next_command
-      step = command.size
-
-      case command.first
-      when 1 then write 3, command[1] + command[2]
-      when 2 then write 3, command[1] * command[2]
-      when 3 then write 1, inputs.shift
-      when 4
-        output = command[1]
-        ret_code = :output
-      when 5 then step = jump(command[2]) unless command[1].zero?
-      when 6 then step = jump(command[2]) if command[1].zero?
-      when 7 then write 3, command[1] < command[2] ? 1 : 0
-      when 8 then write 3, command[1] == command[2] ? 1 : 0
-      when 99 then ret_code = :halt
-      else print "¡Error!\n"
-      end
-
-      @pointer += step
+    self.inputs = inputs
+    self.output = nil
+    until output
+      prepare_command
+      run_command
+      increment_pointer
     end
 
-    [ret_code, output]
+    output
   end
 
-  def next_command
-    op = mem[pointer] % 100
-    modifiers = (mem[pointer] / 100).to_s.rjust(3, '0')
+  private
 
-    (1..PARAMS[op]).map do |param|
-      modifiers[-param].to_i.zero? ? mem[mem[pointer + param]] : mem[pointer + param]
-    end.unshift(op)
+  OPS = {
+    1 => proc { write(3, params(1) + params(2)) },
+    2 => proc { write(3, params(1) * params(2)) },
+    3 => proc { write(1, inputs.shift) },
+    4 => proc { self.output = params(1) },
+    5 => proc { jump(params(2)) unless params(1).zero? },
+    6 => proc { jump(params(2)) if params(1).zero? },
+    7 => proc { write(3, params(1) < params(2) ? 1 : 0) },
+    8 => proc { write(3, params(1) == params(2) ? 1 : 0) },
+    99 => proc { self.output = :halt }
+  }.freeze
+
+  def prepare_command
+    self.op = mem[pointer] % 100
+    self.modifiers = (mem[pointer] / 100).to_s.rjust(3, '0')
+    self.params_count = 0
+  end
+
+  def run_command
+    raise 'Error!' unless OPS[op]
+
+    instance_eval(&OPS[op])
+  end
+
+  def update_params_count(param)
+    self.params_count = 1 + param if params_count < param
+  end
+
+  def params(param)
+    update_params_count(param)
+    modifiers[-param].to_i.zero? ? mem[mem[pointer + param]] : mem[pointer + param]
   end
 
   def write(param, value)
+    update_params_count(param)
     mem[mem[pointer + param]] = value
   end
 
   def jump(new_pointer)
-    @pointer = new_pointer
-    0
+    self.pointer = new_pointer
+    self.params_count = 0
+  end
+
+  def increment_pointer
+    self.pointer += params_count
   end
 end
 
@@ -65,7 +79,7 @@ AMPLIFIERS = 5
 (0...AMPLIFIERS).to_a.permutation(AMPLIFIERS).map do |order|
   input = 0
   order.each do |phase|
-    input = Amplifier.new.run([phase, input]).last
+    input = Amplifier.new.run([phase, input])
   end
   input
 end.max
@@ -74,13 +88,11 @@ end.max
   inputs = order.map { |phase| [phase] }
   amplifiers = AMPLIFIERS.times.map { Amplifier.new }
 
-  last_output = last_amplifier_last_output = 0
+  last_output = 0
   inputs.each_with_index.cycle do |input, amplifier|
-    code, last_output = amplifiers[amplifier].run(input.push(last_output))
-
-    last_amplifier_last_output = last_output if amplifier + 1 == AMPLIFIERS
-    break if code == :halt
+    last_output = amplifiers[amplifier].run(input.push(last_output))
+    break if last_output == :halt
   end
 
-  last_amplifier_last_output
+  amplifiers[-1].output
 end.max

@@ -76,7 +76,7 @@ end
 
 AMPLIFIERS = 5
 
-(0...AMPLIFIERS).to_a.permutation(AMPLIFIERS).map do |order|
+first = (0...AMPLIFIERS).to_a.permutation(AMPLIFIERS).map do |order|
   input = 0
   order.each do |phase|
     input = Amplifier.new.run([phase, input])
@@ -84,7 +84,7 @@ AMPLIFIERS = 5
   input
 end.max
 
-(AMPLIFIERS...AMPLIFIERS * 2).to_a.permutation(AMPLIFIERS).map do |order|
+second = (AMPLIFIERS...AMPLIFIERS * 2).to_a.permutation(AMPLIFIERS).map do |order|
   inputs = order.map { |phase| [phase] }
   amplifiers = AMPLIFIERS.times.map { Amplifier.new }
 
@@ -96,3 +96,6 @@ end.max
 
   amplifiers[-1].output
 end.max
+
+print "First problem: #{first}\n"
+print "Second problem: #{second}\n"

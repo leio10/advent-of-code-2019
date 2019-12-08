@@ -29,7 +29,7 @@ class Problem
         mem[mem[i+1]] = input.to_i
         params = 1
       elsif op == 4
-        p "=> #{param1}"
+        output = param1
         params = 1
       elsif op == 5
         params = 2
@@ -57,9 +57,12 @@ class Problem
       end
       i += 1 + params
     end
+
+    output
   end
 end
 
 problem = Problem.new
-problem.run(1)
-problem.run(5)
+
+print "First problem: #{problem.run(1)}\n"
+print "Second problem: #{problem.run(5)}\n"

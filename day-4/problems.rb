@@ -23,4 +23,4 @@ second = (240920..789857).sum do |i|
 end
 
 print "First problem: #{first}\n"
-print "\nSecond problem: #{second}\n"
+print "Second problem: #{second}\n"
